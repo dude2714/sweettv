@@ -3,29 +3,64 @@ $ErrorActionPreference = 'Stop'
 $adb = 'C:\Users\johns\AppData\Local\Microsoft\WinGet\Packages\Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe\platform-tools\adb.exe'
 $serial = '0321418026779'
 $report = 'C:\Users\johns\OneDrive\Desktop\empty folder\tea-tv\apk-work\launch_teatv_shield_report.txt'
+$manifestPath = 'C:\Users\johns\OneDrive\Desktop\empty folder\tea-tv\apk-work\sweettv-src-clean-base\AndroidManifest.xml'
 $runStamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssK'
+
+[string]$manifestText = Get-Content -LiteralPath $manifestPath -Raw
+$packageMatch = [regex]::Match($manifestText, '<manifest\b[^>]*\bpackage="([^"]+)"')
+if (-not $packageMatch.Success) {
+    throw 'Package name not found in AndroidManifest.xml'
+}
+
+$packageName = $packageMatch.Groups[1].Value
+$launcherActivity = $null
+$activityMatches = [regex]::Matches($manifestText, '<activity\b[^>]*\bandroid:name="([^"]+)"[^>]*>(.*?)</activity>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+
+foreach ($activityMatch in $activityMatches) {
+    $activityBody = $activityMatch.Groups[2].Value
+    if ($activityBody -match 'android.intent.action.MAIN' -and $activityBody -match 'android.intent.category.(LAUNCHER|LEANBACK_LAUNCHER)') {
+        $launcherActivity = $activityMatch.Groups[1].Value
+        break
+    }
+}
+
+if (-not $launcherActivity) {
+    throw 'Launcher activity not found in AndroidManifest.xml'
+}
+
+$launchComponent = if ($launcherActivity.StartsWith('.')) {
+    $packageName + '/' + $packageName + $launcherActivity
+} else {
+    $packageName + '/' + $launcherActivity
+}
+$packagePattern = [regex]::Escape($packageName)
+$activityPattern = [regex]::Escape(($launcherActivity -split '\.')[-1])
 
 Set-Content -LiteralPath $report -Value @(
     'SCRIPT_STARTED=YES'
     'RUN_STAMP=' + $runStamp
     'ADB_PATH=' + $adb
     'REPORT_PATH=' + $report
+    'PACKAGE_NAME=' + $packageName
+    'LAUNCH_COMPONENT=' + $launchComponent
 ) -Encoding ascii
 
 try {
     $clearOutput = & $adb -s $serial logcat -c 2>&1
     $clearExit = $LASTEXITCODE
 
-    $launchOutput = & $adb -s $serial shell am start -W -n com.dude2714.teatv/com.oe.photocollage.SplashActivity 2>&1
+    $launchOutput = & $adb -s $serial shell am start -W -n $launchComponent 2>&1
     $launchExit = $LASTEXITCODE
 
     $topOutput = & $adb -s $serial shell dumpsys activity top 2>&1
     $topExit = $LASTEXITCODE
-    $topFiltered = $topOutput | Select-String 'ACTIVITY|com\.dude2714\.teatv|SplashActivity|MainActivityNew|com\.google\.android\.tvlauncher'
+    $topPattern = 'ACTIVITY|' + $packagePattern + '|' + $activityPattern + '|MainActivityNew|com\.google\.android\.tvlauncher'
+    $topFiltered = $topOutput | Select-String $topPattern
 
     $logcatOutput = & $adb -s $serial logcat -d -v brief 2>&1
     $logcatExit = $LASTEXITCODE
-    $logcatFiltered = $logcatOutput | Select-String 'com\.dude2714\.teatv|AndroidRuntime|FATAL EXCEPTION|VerifyError|Exception|ActivityTaskManager|ActivityManager'
+    $logcatPattern = $packagePattern + '|AndroidRuntime|FATAL EXCEPTION|VerifyError|Exception|ActivityTaskManager|ActivityManager'
+    $logcatFiltered = $logcatOutput | Select-String $logcatPattern
 
     $lines = @(
         'CLEAR_EXIT=' + $clearExit
