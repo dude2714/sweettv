@@ -2,10 +2,11 @@ $ErrorActionPreference = 'Stop'
 
 $adb = 'C:\Users\johns\AppData\Local\Microsoft\WinGet\Packages\Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe\platform-tools\adb.exe'
 $serial = '0321418026779'
-$apk = 'C:\Users\johns\OneDrive\Desktop\empty folder\tea-tv\apk-work\sweettv-clean-base.apk'
+$root = Split-Path -Parent $PSCommandPath
+$apk = Join-Path $root 'sweettv-clean-base.apk'
 $stagedApk = 'C:\Users\johns\sweettv-clean-base.apk'
-$report = 'C:\Users\johns\OneDrive\Desktop\empty folder\tea-tv\apk-work\install_sweet_tv_shield_report.txt'
-$manifestPath = 'C:\Users\johns\OneDrive\Desktop\empty folder\tea-tv\apk-work\sweettv-src-clean-base\AndroidManifest.xml'
+$report = Join-Path $root 'install_sweet_tv_shield_report.txt'
+$manifestPath = Join-Path $root 'sweettv-src-clean-base\AndroidManifest.xml'
 $runStamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssK'
 
 [string]$manifestText = Get-Content -LiteralPath $manifestPath -Raw

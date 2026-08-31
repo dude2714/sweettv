@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Stop'
 
-$root = 'C:\Users\johns\OneDrive\Desktop\empty folder\tea-tv\apk-work'
+$root = Split-Path -Parent $PSCommandPath
 $java = 'C:\Users\johns\scoop\apps\temurin17-jdk\current\bin\java.exe'
 $apktool = 'C:\Users\johns\scoop\apps\apktool\current\apktool.jar'
-$sourceApk = 'L:\NVIDIA_SHIELD\TeaTV [11.1.8r-release].apk'
-$stagedSourceApk = 'C:\Users\johns\teatv-original-donor.apk'
+$sourceApk = [System.IO.Directory]::GetFiles('L:\NVIDIA_SHIELD', '*11.1.8r-release*.apk') | Select-Object -First 1
+$stagedSourceApk = 'C:\Users\johns\sweettv-original-donor.apk'
 $targetDir = Join-Path $root 'sweettv-src-clean-base'
 $stdout = Join-Path $root 'sweettv-clean-base-decode-stdout.txt'
 $stderr = Join-Path $root 'sweettv-clean-base-decode-stderr.txt'
@@ -25,6 +25,10 @@ $decodeProc = Start-Process -FilePath $java -ArgumentList '-jar', $apktool, 'd',
 
 if (-not (Test-Path -LiteralPath $sourceApk)) {
     'SOURCE_APK_MISSING=True' | Add-Content $exitFile -Encoding ascii
+}
+
+if ($decodeProc.ExitCode -eq 0) {
+    & (Join-Path $root 'prepare_sweettv_clean_base.ps1')
 }
 
 exit $decodeProc.ExitCode
